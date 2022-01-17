@@ -1,0 +1,17 @@
+version: '3.1'
+
+services:
+  db:
+    image: mysql
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${DATABASE}
+      - MYSQL_USER=${USERNAME}
+      - MYSQL_PASSWORD=${PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${ROOT_PASSWORD}
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d
+
+  script:
+    build: ./build
+    restart: always
