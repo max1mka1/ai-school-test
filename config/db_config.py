@@ -2,8 +2,6 @@ import os
 from typing import get_type_hints, Union
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='./config/.env')
-
 
 class AppConfigError(Exception):
     pass
@@ -26,8 +24,9 @@ class AppConfig:
     PORT: int
     USERNAME: str
     PASSWORD: str
+    ROOT_USERNAME: str
+    ROOT_PASSWORD: str
     DATABASE: str
-
 
 
     def __init__(self, env):
@@ -56,6 +55,9 @@ class AppConfig:
 
     def __repr__(self):
         return str(self.__dict__)
+
+# Подгрузим переменные виртуального окружения
+load_dotenv()  # dotenv_path='./config/.env'
 
 # Создадим объект конфигурации для импорта в приложение
 Config = AppConfig(os.environ)
