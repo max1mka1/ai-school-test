@@ -27,7 +27,7 @@ class Products(Base):
     price = Column('price', Integer, nullable=False)
     preview_text = Column('preview_text', String(128), nullable=False)
     detail_text = Column('detail_text', String(256), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column('user_id', Integer, ForeignKey('users.id'))
 
     def __repr__(self):
         for field in self.__annotations__:
@@ -39,8 +39,15 @@ class Users(Base):
     """
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, autoincrement=False)
+    user_id = Column('user_id', Integer, nullable=True)
 
     def __repr__(self):
         for field in self.__annotations__:
             return f'<Поле {self.field}>'
 
+
+# users = Table('products',
+#     Column('products_user_id', Integer, ForeignKey('products.user_id')),
+#     Column('users_user_id', Integer, ForeignKey('users.user_id')),
+#     info={'bind_key': 'user_id'}
+# )

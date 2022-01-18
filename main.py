@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 import logging
 from os import environ as env
@@ -17,6 +18,10 @@ logging.basicConfig(level=logging.INFO,
                     filemode='w',
                     format='Дата-Время: %(asctime)s : Номер строки.: %(lineno)d - %(message)s')
 
+DATA_PATH = os.path.join(os.getcwd(), 'data')
+if not os.path.exists(DATA_PATH):
+    os.makedirs(DATA_PATH)
+
 
 class DBManager:
     """
@@ -26,9 +31,12 @@ class DBManager:
     config: AppConfig = None
     connection: MySQLConnection = None
 
-    def __init__(self, config, columns: List[str]):
+    def __init__(self, config: AppConfig, columns: List[str],
+                 csv_db_path: str, db_dump_name: str = None):
         self.config = config
         self.columns = columns
+        self.csv_db_path = csv_db_path
+        self.db_dump_name = db_dump_name
         self.connect_db()
         self.engine = create_engine(
             f'mysql://{self.config.USERNAME}:{self.config.PASSWORD}@{self.config.HOSTNAME}/{self.config.DATABASE}',
@@ -68,7 +76,7 @@ class DBManager:
         """
         try:
             engine = create_engine(f'mysql://{self.config.USERNAME}:{self.config.PASSWORD}@{self.config.HOSTNAME}',
-                               echo=True)
+                                     echo=True)
             with engine.connect() as connection:
                 connection.execute("commit")
                 connection.execute(f"CREATE DATABASE IF NOT EXISTS {self.config.DATABASE}")
@@ -90,42 +98,82 @@ class DBManager:
         detail_text - детальное описание
         user_id - вторичный ключ для связи с таблицей пользователей
         """
-        data = OrderedDict.fromkeys(columns, [])
-        for i in range(10):
-            pass
-            # data[]
-            # if i % 5 == 0:
-
-        user_id = 0
+        import random
+        data = OrderedDict.fromkeys(self.columns, [])
         df = pd.DataFrame(data=data)
-        # df.to_csv('./data/new_data.csv')
+        for i in range(10):
+            index = i
+            if i % 5 == 0:
+                index = random.randint(0, i)
+            df = df.append({'prod_id': index,
+                            'name': f'name_{index}',
+                            'code': f'code_{i}',
+                            'preview_text': f'preview_text_{i}',
+                            'detail_text': f'detail_text_{i}',
+                            'user_id': f'{index}',
+                            }, ignore_index=True)
 
-    def read_db(self) -> pd.DataFrame:
+        csv_db_path = os.path.join(DATA_PATH, 'database.csv')
+        df.to_csv(csv_db_path, index=False)
+
+
+    def read_db(self, table_name: str) -> pd.DataFrame:
         """
         Метод для ивлечения днных из уже имеющейся БД
         """
         # Using pandas to get data directly
-        df = pd.read_sql("select * from products", con=self.engine)
+        df = pd.read_sql(f"select * from {table_name}", con=self.engine)
 
         return df
 
 
-    def csv_to_sql(self, dataframe: pd.DataFrame, tablename: str) -> None:
+    def update_db(self) -> None:
         """
-
+        Метод для обновления БД согласно требованиям задания
         """
+        # PRODUCTS
+        table_name = 'products'
+        # Сперва проверим наличие данных в таблице БД
+        sql_db = self.read_db(table_name=table_name)
+        # Проверяем существует ли база csv
+        if not os.path.isfile(self.csv_db_path):
+            # Генерируем синтетческий датафрейм (генерим сами, хотя есть соответствующие либы)
+            df = self.generate_csv()
+        else:
+            df = pd.read_csv(self.csv_db_path)
+        df.to_sql(table_name, self.engine, if_exists='replace', index=False)
 
-        books = pd.DataFrame(
-            {"bname": ['gone with wind', 'good by', 'game of throne', 'king of ring'], "price": [128, 22, 67, 190],
-             'student_id': [1, 1, 3, 2]})
-        #
-        books.to_sql(tablename, self.engine, if_exists='replace', index=False)
-        dataframe = self.generate_csv()
-        tablename = 'products'
-        self.csv_to_sql(dataframe=, tablename=tablename)
+        # Выберем уникальные значения пользователей из БД
+        unique_users = df['user_id'].unique().tolist()
+
+        # USERS
+        table_name = 'users'
+        # Сперва проверим наличие данных в таблице БД
+        sql_db = self.read_db(table_name=table_name)
+        df = pd.DataFrame(data={'user_id': unique_users})
+        df.to_sql(table_name, self.engine, if_exists='replace', index=False)
+
+        # Дамп базы
+        # self.dumb_db()
+
+
+    # def dumb_db(self):
+    #     """
+    #     Метод для создания дампа базы
+    #     """
+    #     con = self.engine.raw_connection()
+    #     if self.db_dump_name:
+    #         dump_path = os.path.join(DATA_PATH, f'{self.db_dump_name}')
+    #         with open(dump_path, 'w') as f:
+    #             for line in con.iterdump():
+    #                 f.write('%s\n' % line)
 
 
 if __name__ == '__main__':
-    columns = ['id', 'name', 'code', 'price', 'preview_text', 'detail_text', 'user_id']
-    manager = DBManager(config=Config, columns=columns)
+    db_dump_name = 'dump.sql'
+    csv_db_path = os.path.join(DATA_PATH, 'database.csv')
+    columns = ['id', 'prod_id', 'name', 'code', 'price', 'preview_text', 'detail_text', 'user_id']
+
+    manager = DBManager(config=Config, columns=columns,
+                        csv_db_path=csv_db_path, db_dump_name=db_dump_name)
     manager.update_db()
